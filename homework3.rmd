@@ -1,5 +1,6 @@
 ---
 title: 'Bios 6301: Assignment 3'
+author: "Nick Strayer"
 output: pdf_document
 ---
 
