@@ -150,10 +150,10 @@ $$\hat{f}(\zeta) = \int_{-\infty}^{\infty} f(x)e^{-2\pi ix \zeta} dx$$
     
 $$\textbf{J} = \frac{d\textbf{f}}{d\textbf{x}} = 
 \left[\frac{\partial\textbf{f}}{\partial x_1} ... \frac{\partial\textbf{f}}{\partial x_n} \right]  = 
-\begin{matrix}
+\left[\begin{matrix}
 \frac{\partial f_1}{\partial x_1} & \dots & \frac{\partial f_1}{\partial x_n} \\
 \vdots & \ddots & \vdots \\ 
 \frac{\partial f_m}{\partial x_1} & \dots & \frac{\partial f_m}{\partial x_n} \\
-\end{matrix}$$
+\end{matrix}\right]$$
 
 
