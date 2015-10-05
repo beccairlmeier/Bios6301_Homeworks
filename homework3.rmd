@@ -39,6 +39,7 @@ your results.
 
 __Code to set up the test:__
 ```{r}
+set.seed(8)
 powerTest <- function(num_patients = 100){
   #Set the treatment group options
   treatmentGroups <- c(0,1)
@@ -88,7 +89,7 @@ Save the `2015/proj_rb15.csv` file in your working directory.  Read
 in the data set and remove the first two columns.
 
 ```{r}
-d <- read.csv("/Users/Nick/Dropbox/vandy/computing/homeworks/Bios6301_homeworks/data/proj_rb15.csv")[,c(-1,-2)]
+d <- read.csv("/Users/Nick/Dropbox/vandy/computing/homework/data/proj_rb15.csv")[,c(-1,-2)]
 ```
 
 > 1. Show the correlation matrix of this data set. (3 points)
