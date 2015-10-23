@@ -1,0 +1,181 @@
+---
+author: 'Nick Strayer'
+title: 'Bios 6301: Assignment 4'
+output: pdf_document
+---
+
+### Question 1
+
+> **Write a function that implements the secant algorithm.** Validate your program by finding the root of the function $f(x) = \cos(x) - x$. Compare its performance with the Newton-Raphson method -- which is faster, and by how much?  For this example $f'(x) = -\sin(x) - 1$.
+
+So we start by coding up the secant method. We will use recursion and make sure we only calculate values once to make it as fast as possible. 
+
+```{r}
+secantMethod <- function(f, x0, x1, tol = 0.0001){
+  #Set up function for recurance equation
+  nextGuess <- function(f, x0, x1) {
+    fx1 <- f(x1) #We use this value twice, so let's only calculate it once.
+    return(x1 - fx1 * (x1 - x0)/(fx1 - f(x0)))
+  }
+  
+  #Get the first guess
+  x2 <- nextGuess(f, x0, x1)
+  
+  #Check for tolerance level:
+  if(abs(x1 - x2) > tol){
+    secantMethod(f, x1, x2, tol) #recursively call the function again.
+  } else {
+    return(x2) #Return the final value.
+  }
+}
+```
+
+Now let's test it on the function we were given. 
+
+```{r}
+t <- function(x) cos(x) - x
+secantMethod(t, 2.1, 2.5)
+```
+
+Just to make sure that this answer is right, let's plot our test function real quick. 
+
+```{r}
+plot(seq(-1,1,0.01), t(seq(-1,1,0.01)), type = 'l')
+```
+
+Great. It looks like it's working. Now to compare with NR. 
+
+First we bring in our NR algorithm from class. I have written it in as similar a format as possible to make a speed comparison fair.  
+
+```{r}
+dt = function(x) -sin(x) - 1 #Code in the derivative. 
+x0  = 2.1 #initial value
+
+NR = function(f, df, x0, tol = 0.0001){
+  #recurance equation
+  nextGuess <- function(f, df, x0) x0 - (f(x0))/(df(0))
+
+  #Get the first guess
+  x1 <- nextGuess(f, df, x0)
+  
+  #Check for tolerance level:
+  if(abs(x0 - x1) > tol){
+    NR(f, df, x1, tol) #recursively call the function again.
+  } else {
+    return(x1) #Return the final value.
+  }
+}
+
+#A quick test.
+NR(t, dt, x0)
+```
+
+So we're getting the same answers from both algorithms. Now for the fun stuff. 
+
+We will set our tolerance to a very small number and then repeat the function a ton of times. Fastest one wins!
+
+I have chosen to use a normally drawn value as the intial guess as it helps us get a better sense of the performance of the algorithms true performance from different starting points rather than just one. This is important because we could choose a point that takes a particularly long or short period of time to converge for a particular algorithm and it would throw off our comparison. 
+
+Since only one draw is done from the same function for each test the compute time added will be identical and it won't throw off the conclusion. 
+
+We start with the __secant method__: 
+```{r}
+tollerance = 0.00001
+numberOfReps = 100000
+system.time(replicate(numberOfReps, secantMethod(t, rnorm(1, 0, 2), 2.5, tol = tollerance)))
+```
+
+...and on to the __newton-raphson method__: 
+```{r}
+system.time(replicate(numberOfReps, NR(t, dt, rnorm(1, 0, 2), tol = tollerance)))
+```
+
+It is rather conclusive that the secant method is the fastest. By almost 2 times (although the magnitude of difference could be thrown off by the `rnorm` call.)
+
+### Question 2 ###
+
+**18 points**
+
+The game of craps is played as follows. First, you roll two six-sided dice; let x be the sum of the dice on the first roll. If x = 7 or 11 you win, otherwise you keep rolling until either you get x again, in which case you also win, or until you get a 7 or 11, in which case you lose.
+
+Write a program to simulate a game of craps. You can use the following snippet of code to simulate the roll of two (fair) dice:
+
+```{r}
+    x <- sum(ceiling(6*runif(2)))
+```
+
+1. The instructor should be able to easily import and run your program (function), and obtain output that clearly shows how the game progressed.  Set the RNG seed with `set.seed(100)` and show the output of three games. (lucky 13 points)
+
+1. Find a seed that will win ten straight games.  Consider adding an argument to your function that disables output. Show the output of the ten games. (5 points)
+
+### Question 3 ###
+
+**12 points**
+
+Obtain a copy of the [football-values lecture](https://github.com/couthcommander/football-values).  Save the five 2015 CSV files in your working directory.
+
+Modify the code to create a function.  This function will create dollar values given information (as arguments) about a league setup.  It will return a data.frame and write this data.frame to a CSV file.  The final data.frame should contain the columns 'PlayerName', 'pos', 'points', 'value' and be orderd by value descendingly.  Do not round dollar values.
+
+Note that the returned data.frame should have `sum(posReq)*nTeams` rows.
+
+Define the function as such (6 points):
+
+```{r eval=FALSE}
+# path: directory path to input files
+# file: name of the output file; it should be written to path
+# nTeams: number of teams in league
+# cap: money available to each team
+# posReq: number of starters for each position
+# points: point allocation for each category
+ffvalues <- function(path, file='outfile.csv', nTeams=12, cap=200, posReq=c(qb=1, rb=2, wr=3, te=1, k=1),
+                     points=c(fg=4, xpt=1, pass_yds=1/25, pass_tds=4, pass_ints=-2,
+                              rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6)) {
+  ## read in CSV files
+  ## calculate dollar values
+  ## save dollar values as CSV file
+  ## return data.frame with dollar values
+}
+```
+
+1. Call `x1 <- ffvalues('.')`
+
+    1.  How many players are worth more than $20? (1 point)
+    
+    1.  Who is 15th most valuable running back (rb)? (1 point)
+
+1. Call `x2 <- ffvalues(getwd(), '16team.csv', nTeams=16, cap=150)`
+
+    1.  How many players are worth more than $20? (1 point)
+    
+    1.  How many wide receivers (wr) are in the top 40? (1 point)
+
+1. Call:
+
+    ```{r eval=FALSE}
+    x3 <- ffvalues('.', 'qbheavy.csv', posReq=c(qb=2, rb=2, wr=3, te=1, k=0),
+            points=c(fg=0, xpt=0, pass_yds=1/25, pass_tds=6, pass_ints=-2,
+                    rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6))
+    ```
+
+    1.  How many players are worth more than $20? (1 point)
+    
+    1.  How many quarterbacks (qb) are in the top 30? (1 point)
+
+### Question 4 ###
+
+**5 points**
+
+This code makes a list of all functions in the base package:
+
+```{r eval=FALSE}
+objs <- mget(ls("package:base"), inherits = TRUE)
+funs <- Filter(is.function, objs)
+```
+
+Using this list, write code to answer these questions.
+
+1. Which function has the most arguments? (3 points)
+
+1. How many functions have no arguments? (2 points)
+
+Hint: find a function that returns the arguments for a given function.
