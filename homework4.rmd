@@ -2,6 +2,7 @@
 author: 'Nick Strayer'
 title: 'Bios 6301: Assignment 4'
 output: pdf_document
+fontsize: 10pt
 ---
 
 ### Question 1
@@ -134,14 +135,14 @@ playCraps(printGame = T)
 Good, looks like it's working. 
 
 
-> 1. The instructor should be able to easily import and run your program (function), and obtain output that clearly shows how the game progressed.  Set the RNG seed with `set.seed(100)` and show the output of three games. (lucky 13 points)
+> The instructor should be able to easily import and run your program (function), and obtain output that clearly shows how the game progressed.  Set the RNG seed with `set.seed(100)` and show the output of three games. (lucky 13 points)
 
 ```{r}
 set.seed(100)
 replicate(3,playCraps(printGame = T))
 ```
 
-> 2. Find a seed that will win ten straight games.  Consider adding an argument to your function that disables output. Show the output of the ten games. (5 points)
+> Find a seed that will win ten straight games.  Consider adding an argument to your function that disables output. Show the output of the ten games. (5 points)
 
 To do this we will scan through possible seeds until we hit one that allows us to win 10 games in a row. 
 ```{r}
@@ -166,15 +167,16 @@ Schweet.
 
 **12 points**
 
-Obtain a copy of the [football-values lecture](https://github.com/couthcommander/football-values).  Save the five 2015 CSV files in your working directory.
+> Obtain a copy of the [football-values lecture](https://github.com/couthcommander/football-values).  Save the five 2015 CSV files in your working directory.
 
-Modify the code to create a function.  This function will create dollar values given information (as arguments) about a league setup.  It will return a data.frame and write this data.frame to a CSV file.  The final data.frame should contain the columns 'PlayerName', 'pos', 'points', 'value' and be orderd by value descendingly.  Do not round dollar values.
+> Modify the code to create a function.  This function will create dollar values given information (as arguments) about a league setup.  It will return a data.frame and write this data.frame to a CSV file.  The final data.frame should contain the columns 'PlayerName', 'pos', 'points', 'value' and be orderd by value descendingly.  Do not round dollar values.
 
-Note that the returned data.frame should have `sum(posReq)*nTeams` rows.
+> Note that the returned data.frame should have `sum(posReq)*nTeams` rows.
 
-Define the function as such (6 points):
+> Define the function as such (6 points):
 
-```{r eval=FALSE}
+```{r}
+# setwd("/Users/Nick/Dropbox/vandy/computing/homework/data")
 # path: directory path to input files
 # file: name of the output file; it should be written to path
 # nTeams: number of teams in league
@@ -182,54 +184,164 @@ Define the function as such (6 points):
 # posReq: number of starters for each position
 # points: point allocation for each category
 ffvalues <- function(path, file='outfile.csv', nTeams=12, cap=200, posReq=c(qb=1, rb=2, wr=3, te=1, k=1),
-                     points=c(fg=4, xpt=1, pass_yds=1/25, pass_tds=4, pass_ints=-2,
-                              rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6)) {
+                         points=c(fg=4, xpt=1, pass_yds=1/25, pass_tds=4, pass_ints=-2, rush_yds=1/10, 
+                                  rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6)) {
+
+  
   ## read in CSV files
+  setwd(path) #Get to the right place.
+  k  <- read.csv("proj_k15.csv")
+  qb <- read.csv("proj_qb15.csv")
+  rb <- read.csv("proj_rb15.csv")
+  te <- read.csv("proj_te15.csv")
+  wr <- read.csv("proj_wr15.csv")
+  
+  k[,'pos']  <- 'k'
+  qb[,'pos'] <- 'qb'
+  rb[,'pos'] <- 'rb'
+  te[,'pos'] <- 'te'
+  wr[,'pos'] <- 'wr'
+  
+  # generate unique list of column names
+  cols <- unique(c(names(k), names(qb), names(rb), names(te), names(wr)))
+  
+  k[,setdiff(cols, names(k))]   <- 0
+  qb[,setdiff(cols, names(qb))] <- 0
+  rb[,setdiff(cols, names(rb))] <- 0
+  te[,setdiff(cols, names(te))] <- 0
+  wr[,setdiff(cols, names(wr))] <- 0
+  
+  #Create one big dataframe. 
+  x <- rbind(k[,cols], qb[,cols], rb[,cols], te[,cols], wr[,cols])
+  
+  x[,'p_fg']        <- x[,'fg']*points["fg"]
+  x[,'p_xpt']       <- x[,'xpt']*points["xpt"]
+  x[,'p_pass_yds']  <- x[,'pass_yds']*points["pass_yds"]
+  x[,'p_pass_tds']  <- x[,'pass_tds']*points["pass_tds"]
+  x[,'p_pass_ints'] <- x[,'pass_ints']*points["pass_ints"]
+  x[,'p_rush_yds']  <- x[,'rush_yds']*points["rush_yds"]
+  x[,'p_rush_tds']  <- x[,'rush_tds']*points["rush_tds"]
+  x[,'p_fumbles']   <- x[,'fumbles']*points["fumbles"]
+  x[,'p_rec_yds']   <- x[,'rec_yds']*points["rec_yds"]
+  x[,'p_rec_tds']   <- x[,'rec_tds']*points["rec_tds"]
+
   ## calculate dollar values
+  
+  x[,'points'] <- rowSums(x[,grep("^p_", names(x))])
+  x2 <- x[order(x[,'points'], decreasing=TRUE),]
+ 
+  # determine the row indices for each position
+  k.ix  <- which(x2[,'pos']=='k')
+  qb.ix <- which(x2[,'pos']=='qb')
+  rb.ix <- which(x2[,'pos']=='rb')
+  te.ix <- which(x2[,'pos']=='te')
+  wr.ix <- which(x2[,'pos']=='wr')
+  
+   
+  x2[qb.ix, 'marg'] <- x2[qb.ix,'points'] - x2[qb.ix[max(1,posReq['qb'])*nTeams],'points']
+  x2[rb.ix, 'marg'] <- x2[rb.ix,'points'] - x2[rb.ix[max(1,posReq['rb'])*nTeams],'points']
+  x2[wr.ix, 'marg'] <- x2[wr.ix,'points'] - x2[wr.ix[max(1,posReq['wr'])*nTeams],'points']
+  x2[te.ix, 'marg'] <- x2[te.ix,'points'] - x2[te.ix[max(1,posReq['te'])*nTeams],'points']
+  x2[k.ix,  'marg'] <- x2[k.ix, 'points'] -  x2[k.ix[max(1,posReq['k'])*nTeams],  'points']
+
+  # create a new data.frame subset by non-negative marginal points
+  x3 <- x2[x2[,'marg'] >= 0,]
+  
+  # re-order by marginal points
+  x3 <- x3[order(x3[,'marg'], decreasing=TRUE),]
+  
+  # reset the row names
+  rownames(x3) <- NULL
+  
+  # calculation for player value
+  x3[,'value'] <- x3[,'marg']*(nTeams*cap-nrow(x3))/sum(x3[,'marg']) + 1
+  
+  # create a data.frame with more interesting columns
+  x4 <- x3[,c('PlayerName','pos','points','marg','value')]
+  x4[,'marg'] <- NULL
   ## save dollar values as CSV file
+  write.csv(x4, file)
   ## return data.frame with dollar values
+  return(x4)
 }
 ```
 
-1. Call `x1 <- ffvalues('.')`
+> Call `x1 <- ffvalues('.')`
 
-    1.  How many players are worth more than $20? (1 point)
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/homework/data")
+x1 <- ffvalues('.')
+```
+
+> How many players are worth more than $20? (1 point)
     
-    1.  Who is 15th most valuable running back (rb)? (1 point)
-
-1. Call `x2 <- ffvalues(getwd(), '16team.csv', nTeams=16, cap=150)`
-
-    1.  How many players are worth more than $20? (1 point)
+```{r}
+sum(x1[,'value'] > 20)
+```
     
-    1.  How many wide receivers (wr) are in the top 40? (1 point)
+> Who is 15th most valuable running back (rb)? (1 point)
 
-1. Call:
+```{r}
+x1[x1[,'pos'] == "rb",][15,]
+```
 
-    ```{r eval=FALSE}
-    x3 <- ffvalues('.', 'qbheavy.csv', posReq=c(qb=2, rb=2, wr=3, te=1, k=0),
-            points=c(fg=0, xpt=0, pass_yds=1/25, pass_tds=6, pass_ints=-2,
-                    rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6))
-    ```
+> Call `x2 <- ffvalues(getwd(), '16team.csv', nTeams=16, cap=150)`
 
-    1.  How many players are worth more than $20? (1 point)
+> How many players are worth more than $20? (1 point)
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/homework/data")
+x2 <- ffvalues(getwd(), '16team.csv', nTeams=16, cap=150)
+sum(x2[,'value'] > 20)
+```
     
-    1.  How many quarterbacks (qb) are in the top 30? (1 point)
+> How many wide receivers (wr) are in the top 40? (1 point)
+```{r}
+sum(x2[1:40, "pos" ] == "wr")
+```
+
+
+I added the following lines to the `ffvalues` function to allow for the 0 values. 
+
+Now we continue. 
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/homework/data")
+x3 <- ffvalues('.', 'qbheavy.csv', posReq=c(qb=2, rb=2, wr=3, te=1, k=0),
+        points=c(fg=0, xpt=0, pass_yds=1/25, pass_tds=6, pass_ints=-2,
+                rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6))
+```
+
+> How many players are worth more than $20? (1 point)
+
+```{r}
+sum(x3[,'value'] > 20)
+```
+> How many quarterbacks (qb) are in the top 30? (1 point)
+
+```{r}
+sum(x3[1:30, "pos" ] == "qb")
+```
 
 ### Question 4 ###
 
-**5 points**
 
-This code makes a list of all functions in the base package:
+> This code makes a list of all functions in the base package:
 
-```{r eval=FALSE}
+```{r}
 objs <- mget(ls("package:base"), inherits = TRUE)
 funs <- Filter(is.function, objs)
 ```
 
-Using this list, write code to answer these questions.
+> Using this list, write code to answer these questions.
 
-1. Which function has the most arguments? (3 points)
+> Which function has the most arguments? (3 points)
 
-1. How many functions have no arguments? (2 points)
+```{r}
+argLengths = lapply(funs, function(f) length(formals(f)))
+which.max(argLengths)
+```
 
-Hint: find a function that returns the arguments for a given function.
+> How many functions have no arguments? (2 points)
+```{r}
+sum(argLengths == 0)
+```
+
