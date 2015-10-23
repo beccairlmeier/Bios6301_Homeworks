@@ -94,19 +94,73 @@ It is rather conclusive that the secant method is the fastest. By almost 2 times
 
 ### Question 2 ###
 
-**18 points**
+> The game of craps is played as follows. First, you roll two six-sided dice; let x be the sum of the dice on the first roll. If x = 7 or 11 you win, otherwise you keep rolling until either you get x again, in which case you also win, or until you get a 7 or 11, in which case you lose.
 
-The game of craps is played as follows. First, you roll two six-sided dice; let x be the sum of the dice on the first roll. If x = 7 or 11 you win, otherwise you keep rolling until either you get x again, in which case you also win, or until you get a 7 or 11, in which case you lose.
+> Write a program to simulate a game of craps. You can use the following snippet of code to simulate the roll of two (fair) dice:
 
-Write a program to simulate a game of craps. You can use the following snippet of code to simulate the roll of two (fair) dice:
 
 ```{r}
-    x <- sum(ceiling(6*runif(2)))
+    #Dice rolling function
+    rollDice <- function(n = 2, d = c(1,2,3,4,5,6), printGame = F){
+      res = sum(sample(d, n, replace = T))
+      if(printGame){print(res)} #Do we want to see the way the game plays out?
+      return(res)
+    } 
+    
+    #Let's play craps!
+    playCraps <- function(firstRoll = 0, printGame = F){
+      if(firstRoll == 0){ #if it is our first time playing the game, roll for the first time. 
+        firstRoll <- rollDice(printGame = printGame) #First roll
+        if (firstRoll %in% c(7,11)) return("win") #win if it's a 7 or 11
+      }
+      
+      r <- rollDice(printGame = printGame)
+      if(r == firstRoll){ #Check if our roll is the first roll. 
+        return("win") #if it is, we win
+      } else if(r %in% c(7,11)) { #If we didn't win, did we lose by rolling a 7 or 11? 
+        return("lose")
+      } else { #If we didn't win or lose, play again. 
+        playCraps(firstRoll = firstRoll, printGame = printGame)
+      }
+    }
 ```
 
-1. The instructor should be able to easily import and run your program (function), and obtain output that clearly shows how the game progressed.  Set the RNG seed with `set.seed(100)` and show the output of three games. (lucky 13 points)
+So now that it's in, we test it: 
 
-1. Find a seed that will win ten straight games.  Consider adding an argument to your function that disables output. Show the output of the ten games. (5 points)
+```{r}
+playCraps(printGame = T)
+```
+
+Good, looks like it's working. 
+
+
+> 1. The instructor should be able to easily import and run your program (function), and obtain output that clearly shows how the game progressed.  Set the RNG seed with `set.seed(100)` and show the output of three games. (lucky 13 points)
+
+```{r}
+set.seed(100)
+replicate(3,playCraps(printGame = T))
+```
+
+> 2. Find a seed that will win ten straight games.  Consider adding an argument to your function that disables output. Show the output of the ten games. (5 points)
+
+To do this we will scan through possible seeds until we hit one that allows us to win 10 games in a row. 
+```{r}
+s <- 10 #initialize seed counter.
+while(sum(replicate(10, playCraps()) == "win") != 10){
+  s <- s + 1  #increment our seed 
+  set.seed(s) #set the new seed. 
+} 
+print(s)
+```
+
+Cool. So `r s` gives us what we need. Let's just make sure this is correct. 
+
+```{r}
+set.seed(880)
+replicate(10, playCraps())
+```
+
+Schweet. 
 
 ### Question 3 ###
 
