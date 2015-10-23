@@ -1,0 +1,168 @@
+---
+title: 'Bios 6301: Assignment 3'
+author: "Nick Strayer"
+output: pdf_document
+header-includes:
+   - \usepackage{amssymb}
+---
+
+### Question 1 ###
+
+**10 points**
+
+> 1. Use GitHub to turn in the first three homework assignments. Make sure the teacher (couthcommander) and TA (trippcm) are collaborators. (5 points)
+
+\begin{center} \begin{Large}  \checkmark \end{Large} \end{center}
+
+> 1. Commit each assignment individually.  This means your repository should have at least three commits. (5 points)
+
+\begin{center} \begin{Large} \checkmark \end{Large} \end{center}
+
+### Question 2 ###
+
+**15 points**
+
+> Write a simulation to calculate the power for the following study
+design. The study has two variables, treatment group and outcome.
+There are two treatment groups (0, 1) and they should be assigned
+randomly with equal probability.  The outcome should be a random normal
+variable with a mean of 60 and standard deviation of 20.  If a patient
+is in the treatment group, add 5 to the outcome.  5 is the true
+treatment effect.  Create a linear of model for the outcome by the
+treatment group, and extract the p-value (hint: see assigment1).
+Test if the p-value is less than or equal to the alpha level, which
+should be set to 0.05.
+Repeat this procedure 1000 times. The power is calculated by finding
+the percentage of times the p-value is less than or equal to the alpha
+level.  Use the `set.seed` command so that the professor can reproduce
+your results.
+
+__Code to set up the test:__
+```{r}
+set.seed(8)
+powerTest <- function(num_patients = 100){
+  #Set the treatment group options
+  treatmentGroups <- c(0,1)
+  
+  #Set the treatments
+  treatments <- sample(treatmentGroups, num_patients, replace = T)
+  
+  #Draw outcome values
+  outcome_pre    <- rnorm(num_patients, mean = 60, sd = 20)
+  
+  #Adjust based on treatment.
+  outcome_treat  <- ifelse(treatments==1, outcome_pre + 5, outcome_pre) 
+  
+  #grab pvalue from the lm. 
+  p = summary(lm(outcome_treat ~ treatments))$coefficients[2,4]
+  return(p)
+}
+
+runTests <- function(num_tests = 1000, num_patients = 100, alpha = 0.05){
+  #Run the tests a bunch of times and aggregate the results
+  tests <- replicate(num_tests, powerTest(num_patients))
+  
+  #Return the proportion of values below or equal to our alpha. 
+  return(sum(tests <= alpha)/num_tests)
+}
+```
+
+
+> 1. Find the power when the sample size is 100 patients. (10 points)
+
+```{r}
+runTests(num_tests = 1000, num_patients = 100)
+```
+
+> 2. Find the power when the sample size is 1000 patients. (5 points)
+
+```{r}
+runTests(num_tests = 1000, num_patients = 1000)
+```
+
+
+
+### Question 3 ###
+
+> Obtain a copy of the [football-values lecture](https://github.com/couthcommander/football-values).
+Save the `2015/proj_rb15.csv` file in your working directory.  Read
+in the data set and remove the first two columns.
+
+```{r}
+d <- read.csv("/Users/Nick/Dropbox/vandy/computing/homework/data/proj_rb15.csv")[,c(-1,-2)]
+```
+
+> 1. Show the correlation matrix of this data set. (3 points)
+
+```{r}
+cor(d)
+```
+
+> 2. Generate a data set with 30 rows that has a similar correlation
+structure.  Repeat the procedure 10,000 times and return the mean
+correlation matrix. (10 points)
+
+```{r}
+#install.packages("MASS")
+library(MASS)
+
+#define a function to mess with the correlation matrix a "bit". 
+perturb = function(val) return(val + rnorm(1, 0, 0.05))
+
+cor_aggregate <- matrix(0, 8,8) #Initialize a matrix to hold the sums of correlation matrix results. 
+n <- 10000
+for(i in 1:n){
+  new_cor <- apply(cor(d),c(1, 2), FUN = perturb) #make a similar correlation matrix
+  fake_approx <- mvrnorm(30, colMeans(d), new_cor, 8,8) #Generate data with that correlation matrix
+  cor_aggregate = cor_aggregate + cor(fake_approx) #add to aggregate matrix
+}
+
+cor_aggregate/n #Find average
+```
+
+> 3. Generate a data set with 30 rows that has the exact correlation
+structure as the original data set. (2 points)
+
+```{r}
+(fake_exact <- mvrnorm(30, colMeans(d), cor(d), 8,8))
+```
+
+
+### Question 4 ###
+
+**10 points**
+
+> Use \LaTeX to create the following expressions.
+
+1. ![equation1](images/eq1.png)
+
+$$\begin{aligned}
+P(B) & = \sum_jP(B|A_j)P(A_j), \\
+     & \Rightarrow P(A_i|B) = \frac{P(B|A_i)P(A_i)}{\sum_j(B|A_j)P(A_j)}  
+\end{aligned}$$
+
+
+
+2.  ![equation2](images/eq2.png)
+
+$$\hat{f}(\zeta) = \int_{-\infty}^{\infty} f(x)e^{-2\pi ix \zeta} dx$$
+
+3. ![equation3](images/eq3.png)
+    
+$$\textbf{J} = \frac{d\textbf{f}}{d\textbf{x}} = 
+\left[\frac{\partial\textbf{f}}{\partial x_1} ... \frac{\partial\textbf{f}}{\partial x_n} \right]  = 
+\left[\begin{matrix}
+\frac{\partial f_1}{\partial x_1} & \dots & \frac{\partial f_1}{\partial x_n} \\
+\vdots & \ddots & \vdots \\ 
+\frac{\partial f_m}{\partial x_1} & \dots & \frac{\partial f_m}{\partial x_n} \\
+\end{matrix}\right]$$
+
+
+### Notes/Grade
+```{r}
+## Question 3.3 (-1pt)
+exact <- mvrnorm(30, mu = colMeans(x), Sigma = var(x), empirical = TRUE)
+cor(exact)
+```
+
+49/50 points
