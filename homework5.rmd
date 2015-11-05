@@ -1,0 +1,93 @@
+---
+title: 'Bios 6301: Assignment 5'
+author: Nick Strayer
+output: pdf_document
+---
+
+
+### Question 1 ###
+
+**24 points**
+
+_Import the HAART dataset (`haart.csv`) from the GitHub repository into R, and perform the following manipulations: (4 points each)_
+
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
+h <- read.csv("haart.csv")
+library(lubridate)
+```
+
+_1. Convert date columns into a usable (for analysis) format.  Use the `table` command to display the counts of the year from `init.date`._
+
+```{r}
+h[ , "init.date"]  <- mdy(h[, "init.date"])
+h[ , "last.visit"] <- mdy(h[, "last.visit"])
+h[ , "date.death"] <- mdy(h[, "date.death"])
+table(format(h[ , "init.date"], "%Y"))
+```
+
+_2. Create an indicator variable (one which takes the values 0 or 1 only) to represent death within 1 year of the initial visit.  How many observations died in year 1?_ 
+
+We check to see if the `date.death` column is a real date, then if it is we assign `1` if they died within a year and `0` if they either died more than a year later or there was no death reported.
+```{r}
+h[,"death.in.year"] <- ifelse(!is.na(h[ , "date.death"]), + h[ , "date.death"] - h[ , "init.date"] < 365, 0)
+sum(h[,"death.in.year"])
+```
+So we see that there were `r sum(h[,"death.in.year"])` deaths within a year.
+
+_3. Use the `init.date`, `last.visit` and `death.date` columns to calculate a followup time (in days), which is the difference between the first and either the last visit or a death event (whichever comes first). If these times are longer than 1 year, censor them (this means if the value is above 365, set followup to 365).  Print the quantile for this new variable._
+4. Create another indicator variable representing loss to followup; this means the observation is not known to be dead but does not have any followup visits after the first year.  How many records are lost-to-followup?
+5. Recall our work in class, which separated the `init.reg` field into a set of indicator variables, one for each unique drug. Create these fields and append them to the database as new columns.  Which drug regimen are found over 100 times?
+6. The dataset `haart2.csv` contains a few additional observations for the same study. Import these and append them to your master dataset (if you were smart about how you coded the previous steps, cleaning the additional observations should be easy!).  Show the first five records and the last five records of the complete (and clean) data set.
+
+### Question 2 ###
+
+**10 points**
+
+Obtain the code for using Newton's Method to estimate logistic regression parameters (`logistic.r`) and modify it to predict `death` from `weight`, `hemoglobin` and `cd4baseline` in the HAART dataset. Use complete cases only. Report the estimates for each parameter, including the intercept.
+
+Note: The original script `logistic_debug.r` is in the exercises folder.  It needs modification, specifically, the logistic function should be defined:
+
+```{r}
+logistic <- function(x) 1 / (1 + exp(-x))
+```
+
+### Question 3 ###
+
+**14 points**
+
+Import the `addr.txt` file from the GitHub repository.  This file contains a listing of names and addresses (thanks google).  Parse each line to create a data.frame with the following columns: lastname, firstname, streetno, streetname, city, state, zip.  Keep middle 
+initials or abbreviated names in the firstname column.  Print out the entire data.frame.
+
+### Question 4 ###
+
+**2 points**
+
+The first argument to most functions that fit linear models are formulas.  The following example defines the response variable `death` and allows the model to incorporate all other variables as terms. `.` is used to mean all columns not otherwise in the formula.
+
+```{r}
+# url <- "https://github.com/fonnesbeck/Bios6301/raw/master/datasets/haart.csv"
+# haart_df <- read.csv(url)[,c('death','weight','hemoglobin','cd4baseline')]
+# coef(summary(glm(death ~ ., data=haart_df, family=binomial(logit))))
+```
+
+Now imagine running the above several times, but with a different response and data set each time.  Here's a function:
+
+```{r}
+myfun <- function(dat, response) {
+  form <- as.formula(response ~ .)
+  coef(summary(glm(form, data=dat, family=binomial(logit))))
+}
+```
+
+Unfortunately, it doesn't work. `tryCatch` is "catching" the error so that this file can be knit to PDF.
+
+```{r}
+tryCatch(myfun(haart_df, death), error = function(e) e)
+```
+
+What do you think is going on?  Consider using `debug` to trace the problem.
+
+**5 bonus points**
+
+Create a working function.
