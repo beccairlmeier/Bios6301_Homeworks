@@ -198,17 +198,14 @@ kable(df)
 
 ### Question 4 ###
 
-**2 points**
-
-The first argument to most functions that fit linear models are formulas.  The following example defines the response variable `death` and allows the model to incorporate all other variables as terms. `.` is used to mean all columns not otherwise in the formula.
+_The first argument to most functions that fit linear models are formulas.  The following example defines the response variable `death` and allows the model to incorporate all other variables as terms. `.` is used to mean all columns not otherwise in the formula._
 
 ```{r}
-# url <- "https://github.com/fonnesbeck/Bios6301/raw/master/datasets/haart.csv"
-# haart_df <- read.csv(url)[,c('death','weight','hemoglobin','cd4baseline')]
-# coef(summary(glm(death ~ ., data=haart_df, family=binomial(logit))))
+haart_df <- h[,c('death','weight','hemoglobin','cd4baseline')]
+coef(summary(glm(death ~ ., data=haart_df, family=binomial(logit))))
 ```
 
-Now imagine running the above several times, but with a different response and data set each time.  Here's a function:
+_Now imagine running the above several times, but with a different response and data set each time.  Here's a function:_
 
 ```{r}
 myfun <- function(dat, response) {
@@ -217,14 +214,27 @@ myfun <- function(dat, response) {
 }
 ```
 
-Unfortunately, it doesn't work. `tryCatch` is "catching" the error so that this file can be knit to PDF.
+_Unfortunately, it doesn't work. `tryCatch` is "catching" the error so that this file can be knit to PDF._
 
 ```{r}
 tryCatch(myfun(haart_df, death), error = function(e) e)
 ```
 
-What do you think is going on?  Consider using `debug` to trace the problem.
+_What do you think is going on?  Consider using `debug` to trace the problem._
 
-**5 bonus points**
+The `death` response can't be passed like it is. If you pass it into a function it has no idea what to do with it. You can only do something like that if the function knows what dataframe you are working with. 
+
+
+**bonus points**
 
 Create a working function.
+
+```{r}
+myfun2 <- function(dat, response) {
+  dat$resp = dat[,response]
+  coef(summary(glm(resp ~ ., data=dat, family=binomial(logit))))
+}
+
+myfun2(haart_df, "death")
+```
+
