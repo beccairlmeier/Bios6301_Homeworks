@@ -15,6 +15,7 @@ _Import the HAART dataset (`haart.csv`) from the GitHub repository into R, and p
 setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
 h <- read.csv("haart.csv", stringsAsFactors = F)
 library(lubridate)
+library(knitr)
 ```
 
 _1. Convert date columns into a usable (for analysis) format.  Use the `table` command to display the counts of the year from `init.date`._
@@ -175,10 +176,25 @@ estimate_logistic(x, y)
 
 ### Question 3 ###
 
-**14 points**
+_Import the `addr.txt` file from the GitHub repository.  This file contains a listing of names and addresses (thanks google).  Parse each line to create a data.frame with the following columns: lastname, firstname, streetno, streetname, city, state, zip.  Keep middle initials or abbreviated names in the firstname column.  Print out the entire data.frame._
 
-Import the `addr.txt` file from the GitHub repository.  This file contains a listing of names and addresses (thanks google).  Parse each line to create a data.frame with the following columns: lastname, firstname, streetno, streetname, city, state, zip.  Keep middle 
-initials or abbreviated names in the firstname column.  Print out the entire data.frame.
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
+addr <- readLines("addr.txt") #read it in.
+res  <- lapply(addr, function(s){unlist(strsplit(s, split = "[ ]{2,}"))})
+df   <- do.call(rbind.data.frame, res)
+names(df) <- c("lastname", "firstname", "address", "city", "state", "zip")
+df[] <- lapply(df, as.character) #strings as factors = always and forever false. 
+
+#Now we have to fix the first name column and split the adress one. 
+
+#first names: 
+df$firstname  <- sapply(df$firstname, function(d) return(strsplit(d, " ")[[1]][1])) #Get rid of middle initials. 
+df$streetno   <- sapply(df$address, function(d) return(strsplit(d, " ")[[1]][1])) #grab street number
+df$streetname <- gsub("[0-9]{1,} ", "", df$address) #grab street name
+df$address    <- NULL #get rid of address variable. 
+kable(df)
+```
 
 ### Question 4 ###
 
