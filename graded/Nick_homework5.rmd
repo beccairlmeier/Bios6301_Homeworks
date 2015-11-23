@@ -1,0 +1,251 @@
+---
+title: 'Bios 6301: Assignment 5'
+author: Nick Strayer
+output: pdf_document
+---
+
+
+### Question 1 ###
+
+**24 points**
+
+_Import the HAART dataset (`haart.csv`) from the GitHub repository into R, and perform the following manipulations: (4 points each)_
+
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
+h <- read.csv("haart.csv", stringsAsFactors = F)
+library(lubridate)
+library(knitr)
+```
+
+_1. Convert date columns into a usable (for analysis) format.  Use the `table` command to display the counts of the year from `init.date`._
+
+```{r}
+fix_dates = function(h){
+  fix1900s <- function(x, year=16){ #Make it 1900s if the 10s digits are above 16. 
+    m <- year(x) %% 100
+    year(x) <- ifelse(m > year, 1900+m, 2000+m)
+    x
+  }
+  h[ , "init.date"]  <- fix1900s(mdy(h[, "init.date"]))
+  h[ , "last.visit"] <- fix1900s(mdy(h[, "last.visit"]))
+  h[ , "date.death"] <- fix1900s(mdy(h[, "date.death"]))
+  h
+}
+h = fix_dates(h)
+  
+table(format(h[ , "init.date"], "%Y"))
+```
+
+_2. Create an indicator variable (one which takes the values 0 or 1 only) to represent death within 1 year of the initial visit.  How many observations died in year 1?_ 
+
+We check to see if the `date.death` column is a real date, then if it is we assign `1` if they died within a year and `0` if they either died more than a year later or there was no death reported.
+```{r}
+death_in_year = function(h){
+  h[,"death.in.year"] <- ifelse(!is.na(h[ , "date.death"]), + h[ , "date.death"] - h[ , "init.date"] < 365, 0)
+  h
+}
+h = death_in_year(h)
+
+sum(h[,"death.in.year"])
+```
+So we see that there were `r sum(h[,"death.in.year"])` deaths within a year.
+
+_3. Use the `init.date`, `last.visit` and `death.date` columns to calculate a followup time (in days), which is the difference between the first and either the last visit or a death event (whichever comes first). If these times are longer than 1 year, censor them (this means if the value is above 365, set followup to 365).  Print the quantile for this new variable._
+
+```{r}
+followup_time = function(h){
+  for(i in 1:dim(h)[1]){
+  dif <- NULL #initialize difference
+  #if last visit is not na calc the difference
+  if(!is.na(h[i, "last.visit"])) dif <- difftime(h[i, "last.visit"], h[i,"init.date"], units = "days")  
+  #if the date death is not na make the difference the minimum between the old dif and the new one.
+  if(!is.na(h[i, "date.death"])) dif <- min(dif, difftime(h[i, "date.death"], h[i,"init.date"], units = "days") )
+  
+  h[i,"followup.time"] <- min(365, dif)
+  }
+  h
+}
+h = followup_time(h)
+
+quantile(h[,"followup.time"])
+```
+
+_4. Create another indicator variable representing loss to followup; this means the observation is not known to be dead but does not have any followup visits after the first year.  How many records are lost-to-followup?_
+```{r}
+loss_to_followup = function(h){
+  h[,"loss.to.followup"] <- ifelse(is.na(h[,"date.death"]) & h[,"followup.time"] < 365, 1,0)
+  h
+}
+h = loss_to_followup(h)
+```
+
+_5. Recall our work in class, which separated the `init.reg` field into a set of indicator variables, one for each unique drug. Create these fields and append them to the database as new columns.  Which drug regimen are found over 100 times?_
+
+```{r}
+drug_counts = function(h){
+  #grab unique drug names
+  drugs <- unique(unlist(sapply(h[,"init.reg"], function(d) unlist(strsplit(d, ",") ) ))) #this is ugly...but one line.
+  
+  for(drug in drugs) h[,drug] = 0 #add empty columns
+  
+  for(i in 1:dim(h)[1]){ #for each row in the dataframe
+    for(drug in drugs){
+      if(drug %in% unlist(strsplit(h[i,"init.reg"], ",") )) h[i, drug] = 1 #if the drug is there add to that column
+    } 
+  }
+  for(drug in drugs) if(sum(h[, drug]) > 100) print(drug) #Print the drugs that are prescribed more than 100 times. 
+  h
+}
+h = drug_counts(h)
+```
+
+_6. The dataset `haart2.csv` contains a few additional observations for the same study. Import these and append them to your master dataset (if you were smart about how you coded the previous steps, cleaning the additional observations should be easy!).  Show the first five records and the last five records of the complete (and clean) data set._
+
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
+h0 <- read.csv("haart.csv", stringsAsFactors = F) #Read in the two datasets
+h1 <- read.csv("haart2.csv", stringsAsFactors = F)
+h2  <- rbind(h0,h1) #Merge them
+
+h2 = fix_dates(h2) #Run all the previously written functions on the new data. 
+h2 = death_in_year(h2)
+h2 = followup_time(h2)
+h2 = loss_to_followup(h2)
+h2 = drug_counts(h2)
+
+h2[1:5,]
+rows = dim(h2)[1]
+h2[(rows-5):rows,]
+```
+
+### Question 2 ###
+
+**10 points**
+
+_Obtain the code for using Newton's Method to estimate logistic regression parameters (`logistic.r`) and modify it to predict `death` from `weight`, `hemoglobin` and `cd4baseline` in the HAART dataset. Use complete cases only. Report the estimates for each parameter, including the intercept._
+
+```{r}
+toRegress = h[,c("death", "weight", "hemoglobin", "cd4baseline")] #grab the data.
+
+toRegress = toRegress[complete.cases(toRegress),] #Get rid of NAs
+
+x <- toRegress[2:4]
+y <- toRegress[1]
+
+estimate_logistic <- function(x, y, MAX_ITER=10) {
+
+    logistic <- function(x) 1 / (1 + exp(-x))
+    
+    n <- dim(x)[1]
+    k <- dim(x)[2]
+
+    x <- as.matrix(cbind(rep(1, n), x))
+    y <- as.matrix(y)
+    
+    # Initialize fitting parameters
+    theta <- rep(0, k+1)
+
+    J <- rep(0, MAX_ITER)
+
+    for (i in 1:MAX_ITER) {
+
+        # Calculate linear predictor
+        z <- x %*% theta
+        
+        # Apply logit function
+        h <- logistic(z)
+
+        # Calculate gradient
+        grad <- t((1/n)*x) %*% as.matrix(h - y)
+        
+        # Calculate Hessian
+        H <- t((1/n)*x) %*% diag(array(h)) %*% diag(array(1-h)) %*% x
+
+        # Calculate log likelihood
+        J[i] <- (1/n) %*% sum(-y * log(h) - (1-y) * log(1-h))
+
+        # Newton's method
+        theta <- theta - solve(H) %*% grad
+    }
+    return(theta)
+}
+
+estimate_logistic(x, y)
+```
+
+### Question 3 ###
+
+_Import the `addr.txt` file from the GitHub repository.  This file contains a listing of names and addresses (thanks google).  Parse each line to create a data.frame with the following columns: lastname, firstname, streetno, streetname, city, state, zip.  Keep middle initials or abbreviated names in the firstname column.  Print out the entire data.frame._
+
+```{r}
+setwd("/Users/Nick/Dropbox/vandy/computing/Bios6301/datasets")
+addr <- readLines("addr.txt") #read it in.
+res  <- lapply(addr, function(s){unlist(strsplit(s, split = "[ ]{2,}"))})
+df   <- do.call(rbind.data.frame, res)
+names(df) <- c("lastname", "firstname", "address", "city", "state", "zip")
+df[] <- lapply(df, as.character) #strings as factors = always and forever false. 
+
+#Now we have to fix the first name column and split the adress one. 
+
+#first names: 
+df$firstname  <- sapply(df$firstname, function(d) return(strsplit(d, " ")[[1]][1])) #Get rid of middle initials. 
+df$streetno   <- sapply(df$address, function(d) return(strsplit(d, " ")[[1]][1])) #grab street number
+df$streetname <- gsub("[0-9]{1,} ", "", df$address) #grab street name
+df$address    <- NULL #get rid of address variable. 
+kable(df)
+```
+
+### Question 4 ###
+
+_The first argument to most functions that fit linear models are formulas.  The following example defines the response variable `death` and allows the model to incorporate all other variables as terms. `.` is used to mean all columns not otherwise in the formula._
+
+```{r}
+haart_df <- h[,c('death','weight','hemoglobin','cd4baseline')]
+coef(summary(glm(death ~ ., data=haart_df, family=binomial(logit))))
+```
+
+_Now imagine running the above several times, but with a different response and data set each time.  Here's a function:_
+
+```{r}
+myfun <- function(dat, response) {
+  form <- as.formula(response ~ .)
+  coef(summary(glm(form, data=dat, family=binomial(logit))))
+}
+```
+
+_Unfortunately, it doesn't work. `tryCatch` is "catching" the error so that this file can be knit to PDF._
+
+```{r}
+tryCatch(myfun(haart_df, death), error = function(e) e)
+```
+
+_What do you think is going on?  Consider using `debug` to trace the problem._
+
+The `death` response can't be passed like it is. If you pass it into a function it has no idea what to do with it. You can only do something like that if the function knows what dataframe you are working with. 
+
+
+**bonus points**
+
+Create a working function.
+
+```{r}
+myfun2 <- function(dat, response) {
+  dat$resp = dat[,response]
+  coef(summary(glm(resp ~ ., data=dat, family=binomial(logit))))
+}
+
+myfun2(haart_df, "death")
+```
+
+
+
+### Notes/Grade ###
+```{r}
+## Question 1,2,3,4: awesome!
+
+## Bonus: +5
+
+```
+
+55/50 points
