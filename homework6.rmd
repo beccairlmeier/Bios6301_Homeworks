@@ -3,6 +3,7 @@ title: 'Bios 6301: Assignment 6'
 author: "Nick Strayer"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
+graphics: yes
 ---
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=8, fig.align = 'center', fig.height=6, warning=FALSE, message=FALSE)
@@ -65,9 +66,8 @@ title(main="Heights by Generation",outer=T)
 
 ### Question 2 ###
 
-> Use the simulated results from question 1 to reproduce (as closely as possible) the following plot in ggplot2.
+> Use the simulated results from question 1 to reproduce (as closely as possible) the following plot in ggplot2. (Plot omitted for aesthetic purposes.)
 
-![generations plot](http://d.pr/i/Xh0d+)
 
 ```{r}
 gens$gen <- rep(1:9, each = 100) #give generation labels to the dataset
@@ -79,13 +79,12 @@ ggplot(gens, aes(x = m, y = f)) + geom_point(alpha = 0.5) + facet_wrap(~gen, nro
 
 ### Question 3 ###
 
-You calculated the power of a study design in question #2 of assignment 3. The study has two variables, treatment group and outcome. There are two treatment groups (0, 1) and they should be assigned randomly with equal probability. The outcome should be a random normal variable with a mean of 60 and standard deviation of 20. If a patient is in the treatment group, add 5 to the outcome.
+> You calculated the power of a study design in question #2 of assignment 3. The study has two variables, treatment group and outcome. There are two treatment groups (0, 1) and they should be assigned randomly with equal probability. The outcome should be a random normal variable with a mean of 60 and standard deviation of 20. If a patient is in the treatment group, add 5 to the outcome.
 
-Starting with a sample size of 250, create a 95% bootstrap percentile interval for the mean of each group. Then create a new bootstrap interval by increasing the sample size by 250 until the sample is 2500. Thus you will create a total of 10 bootstrap intervals.  Each bootstrap should create 1000 bootstrap samples. (4 points)
+> Starting with a sample size of 250, create a 95% bootstrap percentile interval for the mean of each group. Then create a new bootstrap interval by increasing the sample size by 250 until the sample is 2500. Thus you will create a total of 10 bootstrap intervals.  Each bootstrap should create 1000 bootstrap samples. (4 points)
 
-Produce a line chart that includes the bootstrapped mean and lower and upper percentile intervals for each group.  Add appropriate labels and a legend. (6 points)
+> Produce a line chart that includes the bootstrapped mean and lower and upper percentile intervals for each group.  Add appropriate labels and a legend. (6 points)
 
-You may use base graphics or ggplot2.  It should look similar to this (in base).
 
 ```{r}
 
@@ -141,9 +140,7 @@ ggplot(bsIntervals, aes(x = n, group = factor(treatment))) +
 
 ### Question 4 ###
 
-**15 points**
-
-Programming with classes.  The following function will generate random patient information.
+> Programming with classes.  The following function will generate random patient information.
 
 ```{r}
 makePatient <- function() {
@@ -181,15 +178,16 @@ mean.medicalRecord <- function(d){
 }
 
 print.medicalRecord <- function(d){
-  sex = ifelse(d$gender == 1, "male", "female")
   cat(paste("Name:", d$name, "\n"))
-  cat("The patient is a", sex, "and was born on", d$date_of_birth, "\n")
+  cat(sprintf("The patient is a %s and was born on %s", d$gender, d$date_of_birth),"\n")
   cat("Visits:\n")
   #make a df of visits to ease ordering by date. 
   visits = data.frame(doa = d$date_of_admission, p = d$pulse, t = d$temperature, fi = d$fluid_intake)
   visits = visits[order(visits$doa), ]
-  cat(sprintf("Date: %s | Pulse: %3.2s | Temp: %6.4s | Fluid Intake: %6.4s\n",
-    visits$doa, visits$p, visits$t, visits$fi))
+  for(i in 1:length(visits$doa)){
+    cat(sprintf("Date: %s | Pulse: %3.2s | Temp: %6.4s | Fluid Intake: %6.4s\n",
+      visits$doa[i], visits$p[i], visits$t[i], visits$fi[i]))
+  }
 }
 
 plot.medicalRecord <- function(d){
@@ -220,18 +218,30 @@ plot(p)
 ```
 
 
-3. Create a further class for a cohort (group) of patients, and write methods for `mean` and `print` which, when applied to a cohort, apply mean or print to each patient contained in the cohort. Hint: think of this as a "container" for patients.  Reset the RNG seed to 8 and create a cohort of ten patients, then show the output for `mean` and `print`. (5 points)
+> 3. Create a further class for a cohort (group) of patients, and write methods for `mean` and `print` which, when applied to a cohort, apply mean or print to each patient contained in the cohort. Hint: think of this as a "container" for patients.  Reset the RNG seed to 8 and create a cohort of ten patients, then show the output for `mean` and `print`. (5 points)
 
 
 ```{r}
-j <- list(name="Joe", salary=55000, union=TRUE)
-class(j) <- 'employee'
-attributes(j)
+set.seed(8)
+c = lapply(1:10, function(d){return(makePatient())})
+class(c) = "cohort"
 
-print.employee <- function(wrkr) {
-  cat(sprintf("name: %s\nsalary: %s\nunion member: %s", 
-              wrkr$name, wrkr$salary, wrkr$union), "\n")
+mean.cohort = function(c){
+  for(patient in c){
+    class(patient) = "medicalRecord"
+    cat("-----------------------\n")
+    print(mean(patient))
+  }
 }
 
-j
+print.cohort = function(c){
+  for(patient in c){
+    class(patient) = "medicalRecord"
+    cat("-----------------------\n")
+    print(patient)
+  }
+}
+
+mean(c)
+print(c)
 ```
