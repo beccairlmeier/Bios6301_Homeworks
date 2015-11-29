@@ -131,8 +131,8 @@ for(i in 2:10){ bsIntervals = rbind(bsIntervals, genVals(250*i) ) }
 ggplot(bsIntervals, aes(x = n, group = factor(treatment))) + 
   geom_ribbon(aes(ymin = lb, ymax = ub, fill = factor(treatment)), alpha = 0.5) +
   geom_line(aes(y = m)) + labs("y" = "Mean", "x" = "Number of Patients") + 
-  scale_fill_discrete(guide = guide_legend(reverse=TRUE), name = "", 
-                      labels=c("Treatment","No Treatment"))
+  scale_fill_discrete(guide = guide_legend(reverse=T), name = "", 
+                      labels=c("No Treatment","Treatment"))
 ```
 
 
