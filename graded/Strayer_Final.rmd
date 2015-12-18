@@ -1,0 +1,497 @@
+---
+title: "Bios 6301: Final Project"
+author: "Nick Strayer"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+graphics: yes
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=6, fig.align = 'center', fig.height=4, warning=FALSE, message=FALSE)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(reshape)
+```
+
+## Task 1: Finding Residuals
+
+
+At the beginning of the course we examined projections for the 2015 NFL season.  With the season ~60% completed, let's compare the observed values to the estimated values.  Place all code at the end of the instructions.
+
+1. Read and combine the projection data (five files) into one data set, adding a position column.
+
+1. The NFL season is 17 weeks long, and 10 weeks have been completed.  Each team plays 16 games and has one week off, called the bye week.  Four teams have yet to have their bye week: CLE, NO, NYG, PIT.  These four teams have played ten games, and every other team has played nine games.  Multiply the numeric columns in the projection data by the percentage of games played (for example, 10/16 if team is PIT).
+
+1. Sort and order the data by the `fpts` column descendingly.  Subset the data by keeping the top 20 kickers, top 20 quarterbacks, top 40 running backs, top 60 wide recievers, and top 20 tight ends.  Thus the projection data should only have 160 rows.
+
+1. Read in the observed data (`nfl_current15.csv`)
+
+1. Merge the projected data with the observed data by the player's name. Keep all 160 rows from the projection data. If observed data is missing, set it to zero.
+
+    You can directly compare the projected and observed data for each player.  There are fifteen columns of interest:
+
+    ```{r, echo=FALSE}
+    kable(data.frame(Name=c('field goals','field goals attempted','extra points','passing attempts','passing completions',
+                      'passing yards','passing touchdowns','passing interceptions','rushing attempts','rushing yards',
+                      'rushing touchdowns','receiving attempts','receiving yards','receiving touchdowns','fumbles'),
+               projected_col=c('fg','fga','xpt','pass_att','pass_cmp','pass_yds','pass_tds','pass_ints',
+                           'rush_att','rush_yds','rush_tds','rec_att','rec_yds','rec_tds','fumbles'),
+               observed_col=c("FGM","FGA","XPM","Att.pass","Cmp.pass","Yds.pass","TD.pass","Int.pass",
+                              "Att.rush","Yds.rush","TD.rush","Rec.catch","Yds.catch","TD.catch","Fmb")))
+    ```
+
+1. Take the difference between the observed data and the projected data for each category. Split the data by position, and keep the columns of interest.
+
+You will now have a list with five elements.  Each element will be a matrix or data.frame with 15 columns.
+
+
+## Task 1: Solution
+
+__part 1__
+```{r}
+fileNames = list.files("data/2015/")[2:length(list.files())]
+positions = c("k", "qb", "rb", "te", "wr")
+df = NULL
+for(i in 1:length(fileNames)){
+  f = read.csv(paste0("data/2015/",fileNames[i]), stringsAsFactors = F)
+  f$position = positions[i]
+  df = bind_rows(df, f) # a little dyplr magic. 
+}
+```
+
+
+
+__part 2__
+```{r}
+noBye = c("CLE", "NO", "NYG", "PIT")
+multipliers = ifelse(df$Team %in% noBye, (10/16), (9/16)) #vector for score multiplication
+
+stats = names(df)[3:length(names(df))] #the numeric columns
+stats = stats[-which(stats == "position")] #gotta get rid of the position column, too
+for(stat in stats) df[,stat] = df[,stat] * multipliers #do the multiplication
+```
+
+
+
+__part 3__
+
+```{r}
+#sort by fpts
+df = df[order(-df$fpts),]
+
+top_df = NULL #initialize holder for this new dataframe
+posNums = c(20,20,40,20,60)
+#           k  qb rb te wr  This order matches our position vector
+
+for(i in 1:length(positions)){
+  #get df with just that position, 
+  sub_df = df[df$position == positions[i],]
+  
+  #take only the first posNum[i] rows
+  sub_df = sub_df[1:posNums[i],]
+  
+  #rbind that with the other stuff.
+  top_df = bind_rows(top_df, sub_df)
+}
+```
+
+
+
+__part 4__
+
+```{r}
+nfl_current = read.csv("data/2015/nfl_current15.csv")
+```
+
+
+__part 5__
+
+
+```{r}
+# get vector of player names we want. 
+topPlayers = top_df$PlayerName
+
+# subset the current dataset to only include those rows
+current_sub = nfl_current[nfl_current$Name %in% topPlayers, ]
+current_sub$PlayerName = current_sub$Name #rename to merge on. 
+
+# Merge with the top_df
+df_pred_obs = merge(top_df, current_sub, by = "PlayerName", all = T)
+df_pred_obs[df_pred_obs == NA] <- 0 #Turn all my NAs into 0s. 
+```
+
+
+
+__part 6__
+
+```{r}
+Name = c('field goals','field goals attempted','extra points','passing attempts','passing completions',
+                      'passing yards','passing touchdowns','passing interceptions','rushing attempts','rushing yards',
+                      'rushing touchdowns','receiving attempts','receiving yards','receiving touchdowns','fumbles')
+
+projected_col = c('fg','fga','xpt','pass_att','pass_cmp','pass_yds','pass_tds','pass_ints',
+                           'rush_att','rush_yds','rush_tds','rec_att','rec_yds','rec_tds','fumbles')
+observed_col = c("FGM","FGA","XPM","Att.pass","Cmp.pass","Yds.pass","TD.pass","Int.pass",
+                              "Att.rush","Yds.rush","TD.rush","Rec.catch","Yds.catch","TD.catch","Fmb")
+
+#make a vector that is the difference between the proj[i] and obs[i] for the whole dataframe
+for(i in 1:length(Name)) df_pred_obs[,Name[i]] = df_pred_obs[,observed_col[i]] - df_pred_obs[,projected_col[i]]
+
+#break into a list by position. 
+byPosition = lapply(positions, function(n){ df_pred_obs[df_pred_obs$position == n, Name]  })
+names(byPosition) = positions #name the list entries. 
+```
+
+---
+
+## Task 2: Creating League S3 Class (80 points)
+
+
+Create an S3 class called `league`.  Place all code at the end of the instructions.
+
+1. Create a function `league` that takes 5 arguments (`stats`, `nTeams`, `cap`, `posReq`, `points`).  It should return an object of type `league`.  Note that all arguments should remain attributes of the object.  They define the league setup and will be needed to calculate points and dollar values.
+
+1. Create a function `calcPoints` that takes 1 argument, a league object.  It will modify the league object by calculating the number of points each player earns, based on the league setup.
+
+1. Create a function `buildValues` that takes 1 argument, a league object.  It will modify the league object by calculating the dollar value of each player.
+
+    As an example if a league has ten teams and requires one kicker, the tenth best kicker should be worth $1.  All kickers with points less than the 10th kicker should have dollar values of $0.
+
+1. Create a `print` method for the league class. It should print the players and dollar values (you may choose to only include players with values greater than $0).
+1. Create a `plot` method for the league class. Add minimal plotting decorations (such as axis labels).
+
+1. Create a `boxplot` method for the league class. Add minimal plotting decorations.
+
+
+1. Create a `hist` method for the league class. Add minimal plotting decorations.
+
+
+
+## Task 2: Solutions
+
+__part 1__
+
+
+```{r}
+league = function(stats, nTeams, cap, posReq, points){
+  obj = list(stats = stats, nTeams = nTeams, cap = cap, posReq = posReq, points = points)
+  class(obj) = 'league' #give it the class
+  return(obj)
+}
+```
+
+
+
+__part 2__
+
+
+```{r}
+calcPoints <- function(d){
+  
+  #create a temporary clone of the stats object
+  tmp = d$stats 
+  tmp[is.na(tmp)] = 0
+ 
+  #grab the names of the stats to be used for calculating points
+  pnts_names = names(d$points) 
+
+  #take each row present in the pnts list and multiply by given scaler
+  for(stat in pnts_names) tmp[,stat] = tmp[,stat] * pnts[stat]
+    
+  #take sum of each row and make a new vector called points return this with the stats dataframe
+  d$stats[,"points"] = rowSums(tmp[,pnts_names])
+  d
+}
+```
+
+
+
+__part 3__
+
+
+```{r}
+buildValues <- function(d){
+  
+  x = d$stats
+  
+  # create new data.frame ordered by points descendingly
+  df = x[order(-x$points),]
+
+  df[, 'marg'] = 0 #initialize the marginal column 
+  
+  # calculate marginal points by subtracting "baseline" player's points
+  for(pos in names(d$posReq)) {
+    ix <- which(df[,'position'] == pos)
+    
+    baseline <- as.numeric(d$posReq[pos])*d$nTeams
+    
+    if(baseline == 0){
+      df[ix, 'marg'] = -1
+    } else{
+      df[ix, 'marg'] = df[ix,'points'] - as.numeric(df[ix[baseline],'points'])
+    } 
+  }
+
+  # create a new data.frame subset by non-negative marginal points
+  df_sub <- df[df[,'marg'] >= 0,]
+
+  # calculation for player value
+  df_sub[,'value'] <- df_sub[,'marg']*(d$nTeams*d$cap-nrow(df_sub))/sum(df_sub[,'marg']) + 1
+  d$stats = df_sub
+  d
+}
+```
+
+
+
+__part 4__
+
+
+```{r}
+print.league = function(d){
+  players = d$stats[,c("PlayerName", "position", "value")]
+  names(players) = c("Name", "Position", "Value")
+  kable(players)
+}
+```
+
+
+
+__part 5__
+
+
+```{r}
+plot.league = function(d){
+  #grab part of object we want
+  df = d$stats
+  #sort results
+  df = df[order(-df$value), ]
+  #add rank column
+  df$rank = seq(length(df$value))
+  #plot it!
+  ggplot(df, aes(x = rank, y = value)) + geom_point(color = "steelblue") + theme_bw() +
+    labs(x = "Ranking", y = "Dollar Value", title = "Player Value by Rank")
+}
+```
+
+
+
+__part 6__
+
+
+```{r}
+boxplot.league = function(d){
+  ggplot(d$stats, aes(x = factor(position), y = value)) + 
+    theme_bw() + geom_boxplot(fill = "steelblue") + 
+    labs(x = "Position", y = "Dollar Value", title = "Spread of Values by Position")
+}
+```
+
+
+__part 7__
+
+
+```{r}
+hist.league = function(d){
+  hist(d$stats$value, col = "steelblue", main = "Distribution of Values", 
+       xlab = "Dollar Value", ylab = "Frequency")
+}
+```
+
+
+__test code__
+```{r}
+x = top_df #my x is the dataframe top_df
+pos  <- list(qb=1, rb=2, wr=3, te=1, k=1)
+pnts <- list(fg=4, xpt=1, pass_yds=1/25, pass_tds=4, pass_ints=-2,
+             rush_yds=1/10, rush_tds=6, fumbles=-2, rec_yds=1/20, rec_tds=6)
+
+l <- league(stats=x, nTeams=10, cap=200, posReq=pos, points=pnts)
+l <- calcPoints(l)
+l <- buildValues(l)
+plot(l)
+boxplot(l)
+hist(l)
+```
+
+---
+
+## Task 3: Simulations with Residuals
+
+
+Using residuals from task 1, create a list of league simulations.  The simulations will be used to generate confidence intervals for player values.  Place all code at the end of the instructions.
+
+1. Create a function `addNoise` that takes 4 arguments: a league object, a list of residuals, number of simulations to generate, and a RNG seed. It will modify the league object by adding a new element `sims`, a matrix of simulated dollar values.
+
+    The original league object contains a `stats` attribute. Each simulation will modify this by adding residual values. This modified `stats` data.frame will then be used to create a new league object (one for each simulation).  Calculate dollar values for each simulation.  Thus if 1000 simulations are requested, each player will have 1000 dollar values.  Create a matrix of these simulated dollar values and attach it to the original league object.
+
+    As an example assume you want to simulate new projections for quarterbacks. The residuals for quarterbacks is a 20x15 matrix. Each row from this matrix is no longer identified with a particular player, but rather it's potential error. Given the original projection for the first quarterback, sample one value between 1 and 20. Add the 15 columns from the sampled row to the 15 columns for the first quarterback. Repeat the process for every quarterback. Note that stats can't be negative so replace any negative values with 0.
+
+1. Create a `quantile` method for the league class; it takes at least two arguments, a league object and a probs vector. This method requires the `sims` element; it should fail if `sims` is not found. The `probs` vector should default to `c(0.25, 0.5, 0.75)`.  It should run `quantile` on the dollar values for each player.
+
+1. Create a function `conf.interval`; it takes at least two arguments, a league object and a probs vector. This method requires the `sims` element; it should fail if `sims` is not found. It should return a new object of type `league.conf.interval`.
+
+    The new object will contain the output of `quantile`. However, results should be split by position and ordered by the last column (which should be the highest probability) descendingly.  Restrict the number of rows to the number of required players at each position.
+
+1. Create a `plot` method for the league.conf.interval class; it takes at least two arguments, a league.conf.interval object and a position. Plot lines for each probability; using the defaults, you would have three lines (0.25, 0.5, 0.75). Add minimal plotting decorations and a legend to distinguish each line.
+
+
+## Task 3: Solution
+
+__part 1__
+
+```{r}
+addNoise = function(obj, resids, numOfSims = 100, seed = 8){
+  set.seed(seed)
+  sims = NULL #holder for the simulation data. 
+  
+  for(j in 1:numOfSims){
+    newObj = obj #clone the league object for this simulation
+    stats = newObj$stats #grab the stats section. 
+    
+    #Going down players in stats df
+    for(i in 1:length(stats$PlayerName)){
+  
+      #Given the original projection for the position of given row
+      currentPos = as.character(stats[i, "position"])
+  
+      #sample one value between 1 and the number of that position
+      sampledVal = sample(1:dim(resids[[currentPos]])[1], 1)
+      
+      #grab that row from the resids dataframe
+      sampledRow = resids[[currentPos]][sampledVal,]
+      rowNames   = names(sampledRow)
+      
+      #Add the 15 columns from the sampled row to the 15 columns for the first position pick
+      stats[i,projected_col] = stats[i,projected_col] + sampledRow
+    }
+    
+    #Note that stats can’t be negative so replace any negative values with 0.
+    stats[stats < 0] = 0
+    
+    #take dollar values from this run and add it to a growing sims matrix
+    newObj$stats = stats
+    newObj <- buildValues(calcPoints(newObj))
+    #grab values
+    vals = newObj$stats$value
+    
+    #add it to sims.
+    sims = cbind(sims, vals)
+  }
+  obj$sims = sims #attach the simulation matrix
+  obj #return the object with it's shiny new simulations
+}
+```
+
+__part 2__
+
+
+```{r}
+quantile.league = function(obj, probs = c(0.25, 0.5, 0.75)){
+  if(is.null(obj$sims)){
+    print("You forgot to run the simulations!")
+  } else{ #the simulations have already been run, let's do stuff. 
+    
+    #grab the list of player names from the stats object
+    names = obj$stats$PlayerName
+    
+    #set up a matrix or df to hold the results 
+    res_mat = matrix(length(names),length(probs) + 1)
+    
+    #take the quantile for each row of the sims
+    res_list = lapply(names, function(d){quantile(obj$sims[which(names == d), ], probs = probs)})
+    
+    #package them
+    res_df = do.call(rbind.data.frame, res_list)
+    res_df$names = names
+    names(res_df) = c(probs,"names")
+    res_df[,c("names", probs)] #reorder on return
+  }
+}
+```
+
+
+__part 3__
+
+
+```{r}
+conf.interval = function(obj, probs = c(0.25, 0.5, 0.75)){
+  #test for the sims element
+  if(is.null(obj$sims)){
+    print("You forgot to run the simulations!")
+  } else{
+    #run the quantile function: 
+    quants = quantile(obj, probs)
+    
+    #grab the player positions and append to the quants df
+    quants[,"position"] = obj$stats[,"position"]
+    
+    #sort by last column
+    lastCol = as.character(probs[length(probs)])
+    quants = quants[order(-quants[lastCol]),]
+    
+    #split the df by position
+    splitDf = split(quants, quants$position)
+    
+    #only take the required number of players per position
+    returnDf = lapply(names(obj$posReq), function(pos){
+      splitDf[[pos]][seq(obj$posReq[[pos]] * obj$nTeams),] #only grab the first n of the position
+    })
+    #return list of dataframes
+    names(returnDf) = names(obj$posReq)
+    class(returnDf) = "league.conf.interval"
+    returnDf
+  }
+}
+```
+
+
+__part 4__
+
+
+```{r}
+plot.league.conf.interval = function(obj, position){
+  #grab the position we are looking at out of the list
+  posDf      = obj[[position]]
+  #generate the rankings
+  posDf$rank = seq(length(posDf$names))
+  #remove all the columns but rank and the probs for the intervals. 
+  posDf      = posDf[c(-1, -(dim(posDf)[2]-1))]
+  plotDf     = melt(posDf, id = "rank")
+  names(plotDf) = c("Rank", "Probability", "Dollar Value")
+
+  ggplot(plotDf, aes(x = Rank, y = `Dollar Value`, color = Probability)) + 
+    geom_line() + theme_bw()
+}
+```
+
+
+__Test code:__
+```{r}
+#the noise vector
+noise = byPosition
+
+l1 <- addNoise(l, noise, 10000)
+quantile(l1)
+ci <- conf.interval(l1)
+plot(ci, 'qb')
+plot(ci, 'rb')
+plot(ci, 'wr')
+plot(ci, 'te')
+plot(ci, 'k')
+```
+
+# Comments
+
+* line 53, the second `list.files` fails if working directory isn't `data/2015`; -1
+* line 121, use `df_pred_obs[is.na(df_pred_obs)] <- 0`; -2
+* Task 2, league object doesn't fail gracefully; -4
+    * code should fail on things like not enough players
+    * `pos <- list(qb=1, rb=2, wr=3, te=1)` gives every kicker $1 value
+* line 380, using `cbind` gives poor performance
+* The simulation would be more interesting if you allowed $0 players to remain in the league object - then those players would have a chance for `noise` to return positive value.
+
+# Grade
+
+193/200
